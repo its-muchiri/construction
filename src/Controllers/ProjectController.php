@@ -149,9 +149,9 @@ final class ProjectController
 
         $db->beginTransaction();
         try {
-            $db->prepare('UPDATE project_quotes SET status = \'accepted\' WHERE id = :quote_id')
+            $db->prepare('UPDATE project_quotes SET status = \'accepted\' WHERE id = :quote_id', [\PDO::ATTR_EMULATE_PREPARES => true])
                 ->execute(['quote_id' => $quote['id']]);
-            $db->prepare('UPDATE project_quotes SET status = \'rejected\' WHERE booking_id = :booking_id AND id != :quote_id AND status = \'submitted\'')
+            $db->prepare('UPDATE project_quotes SET status = \'rejected\' WHERE booking_id = :booking_id AND id != :quote_id AND status = \'submitted\'', [\PDO::ATTR_EMULATE_PREPARES => true])
                 ->execute(['booking_id' => $request->params['id'], 'quote_id' => $quote['id']]);
 
             $db->prepare(
