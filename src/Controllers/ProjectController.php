@@ -89,6 +89,10 @@ final class ProjectController
             Response::unauthorized('Sign in as a provider to submit a quote');
             return;
         }
+        if (!AdminController::isVerifiedProvider($request->user)) {
+            Response::forbidden('Only KYC-verified providers can submit quotes');
+            return;
+        }
 
         $db = Database::connection();
         $stmt = $db->prepare(

@@ -20,6 +20,10 @@ final class ListingController
             Response::unauthorized('Sign in as a provider to list equipment');
             return;
         }
+        if (!AdminController::isVerifiedProvider($request->user)) {
+            Response::forbidden('Complete Tier 3 KYC verification before listing equipment');
+            return;
+        }
 
         $db = Database::connection();
         $stmt = $db->prepare(
@@ -49,10 +53,16 @@ final class ListingController
         $category = $request->query['category'] ?? null;
 
         if ($category) {
-            $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = \'active\' AND equipment_category = :category');
+            $stmt = $db->prepare(
+                'SELECT l.* FROM equipment_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\' AND l.equipment_category = :category'
+            );
             $stmt->execute(['category' => $category]);
         } else {
-            $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = \'active\'');
+            $stmt = $db->query(
+                'SELECT l.* FROM equipment_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\''
+            );
         }
 
         Response::json($stmt->fetchAll());
@@ -62,6 +72,10 @@ final class ListingController
     {
         if (!$request->user) {
             Response::unauthorized('Sign in as a provider to list a crew');
+            return;
+        }
+        if (!AdminController::isVerifiedProvider($request->user)) {
+            Response::forbidden('Complete Tier 3 KYC verification before listing a crew');
             return;
         }
 
@@ -87,10 +101,16 @@ final class ListingController
         $trade = $request->query['trade'] ?? null;
 
         if ($trade) {
-            $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = \'active\' AND trade = :trade');
+            $stmt = $db->prepare(
+                'SELECT l.* FROM crew_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\' AND l.trade = :trade'
+            );
             $stmt->execute(['trade' => $trade]);
         } else {
-            $stmt = $db->query('SELECT * FROM crew_listings WHERE status = \'active\'');
+            $stmt = $db->query(
+                'SELECT l.* FROM crew_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\''
+            );
         }
 
         Response::json($stmt->fetchAll());
@@ -99,12 +119,12 @@ final class ListingController
     public function providerProfile(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
+        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\' AND status = \'active\'');
         $stmt->execute(['id' => $request->params['id']]);
         $provider = $stmt->fetch();
 
         if (!$provider) {
-            Response::notFound('Provider not found');
+            Response::notFound('Provider not found or not yet verified');
             return;
         }
 

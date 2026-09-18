@@ -33,10 +33,14 @@ final class PageController
         try {
             $db = Database::connection();
             $equipment = $db->query(
-                'SELECT id, provider_id, equipment_category, make_model, daily_rate FROM equipment_listings WHERE status = \'active\' ORDER BY id DESC LIMIT 4'
+                'SELECT l.id, l.provider_id, l.equipment_category, l.make_model, l.daily_rate
+                 FROM equipment_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\' ORDER BY l.id DESC LIMIT 4'
             )->fetchAll();
             $crew = $db->query(
-                'SELECT id, provider_id, trade, team_size, day_rate FROM crew_listings WHERE status = \'active\' ORDER BY id DESC LIMIT 4'
+                'SELECT l.id, l.provider_id, l.trade, l.team_size, l.day_rate
+                 FROM crew_listings l JOIN users u ON u.id = l.provider_id
+                 WHERE l.status = \'active\' AND u.status = \'active\' ORDER BY l.id DESC LIMIT 4'
             )->fetchAll();
         } catch (Throwable $e) {
             error_log((string) $e);
@@ -71,6 +75,11 @@ final class PageController
         View::render('onboarding', ['title' => 'Provider verification']);
     }
 
+    public function adminConsole(Request $request): void
+    {
+        View::render('admin', ['title' => 'Admin console']);
+    }
+
     public function equipmentIndex(Request $request): void
     {
         $category = $request->query['category'] ?? null;
@@ -80,10 +89,16 @@ final class PageController
         try {
             $db = Database::connection();
             if ($category) {
-                $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = \'active\' AND equipment_category = :category');
+                $stmt = $db->prepare(
+                    'SELECT l.* FROM equipment_listings l JOIN users u ON u.id = l.provider_id
+                     WHERE l.status = \'active\' AND u.status = \'active\' AND l.equipment_category = :category'
+                );
                 $stmt->execute(['category' => $category]);
             } else {
-                $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = \'active\'');
+                $stmt = $db->query(
+                    'SELECT l.* FROM equipment_listings l JOIN users u ON u.id = l.provider_id
+                     WHERE l.status = \'active\' AND u.status = \'active\''
+                );
             }
             $listings = $stmt->fetchAll();
         } catch (Throwable $e) {
@@ -108,10 +123,16 @@ final class PageController
         try {
             $db = Database::connection();
             if ($trade) {
-                $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = \'active\' AND trade = :trade');
+                $stmt = $db->prepare(
+                    'SELECT l.* FROM crew_listings l JOIN users u ON u.id = l.provider_id
+                     WHERE l.status = \'active\' AND u.status = \'active\' AND l.trade = :trade'
+                );
                 $stmt->execute(['trade' => $trade]);
             } else {
-                $stmt = $db->query('SELECT * FROM crew_listings WHERE status = \'active\'');
+                $stmt = $db->query(
+                    'SELECT l.* FROM crew_listings l JOIN users u ON u.id = l.provider_id
+                     WHERE l.status = \'active\' AND u.status = \'active\''
+                );
             }
             $listings = $stmt->fetchAll();
         } catch (Throwable $e) {
@@ -135,7 +156,7 @@ final class PageController
 
         try {
             $db = Database::connection();
-            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
+            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\' AND status = \'active\'');
             $stmt->execute(['id' => $providerId]);
             $provider = $stmt->fetch() ?: null;
 

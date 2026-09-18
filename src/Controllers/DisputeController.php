@@ -79,6 +79,11 @@ final class DisputeController
 
     public function index(Request $request): void
     {
+        if (!$request->user || $request->user['account_type'] !== 'admin') {
+            Response::forbidden('Only a Platform Admin or Site Inspector can view the dispute queue');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->query('SELECT * FROM disputes WHERE status IN (\'open\', \'under_review\') ORDER BY created_at ASC');
 

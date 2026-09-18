@@ -101,7 +101,7 @@ CREATE TABLE commission_rules (
 CREATE TABLE kyc_documents (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
-    document_type VARCHAR(30) NOT NULL CHECK (document_type IN ('national_id', 'kra_pin', 'business_registration', 'insurance_certificate', 'professional_certification', 'proof_of_address')),
+    document_type VARCHAR(30) NOT NULL CHECK (document_type IN ('national_id', 'kra_pin', 'business_registration', 'insurance_certificate', 'professional_certification', 'proof_of_address', 'proof_of_ownership')),
     file_reference VARCHAR(500) NOT NULL,
     verification_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified', 'rejected', 'expired')),
     verified_by BIGINT NULL REFERENCES users(id),

@@ -105,7 +105,7 @@ CREATE TABLE commission_rules (
 CREATE TABLE kyc_documents (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
-    document_type ENUM('national_id', 'kra_pin', 'business_registration', 'insurance_certificate', 'professional_certification', 'proof_of_address') NOT NULL,
+    document_type ENUM('national_id', 'kra_pin', 'business_registration', 'insurance_certificate', 'professional_certification', 'proof_of_address', 'proof_of_ownership') NOT NULL,
     file_reference VARCHAR(500) NOT NULL,
     verification_status ENUM('pending', 'verified', 'rejected', 'expired') NOT NULL DEFAULT 'pending',
     verified_by BIGINT UNSIGNED NULL,

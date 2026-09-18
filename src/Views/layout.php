@@ -46,7 +46,8 @@ $isCritical = $critical ?? false;
     const user = getUser();
 
     if (user) {
-      accountEl.innerHTML = `<span class="card__meta">Hi, ${user.full_name.split(" ")[0]}</span> <button type="button" class="btn btn--secondary" id="nav-logout">Log out</button>`;
+      const adminLink = user.account_type === "admin" ? `<a href="/admin" class="btn btn--secondary">Admin</a> ` : "";
+      accountEl.innerHTML = `${adminLink}<span class="card__meta">Hi, ${user.full_name.split(" ")[0]}</span> <button type="button" class="btn btn--secondary" id="nav-logout">Log out</button>`;
       document.getElementById("nav-logout").addEventListener("click", () => {
         clearSession();
         window.location.href = "/";

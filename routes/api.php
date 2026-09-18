@@ -9,6 +9,7 @@
  * @var \Construction\Core\Router $router
  */
 
+use Construction\Controllers\AdminController;
 use Construction\Controllers\AuthController;
 use Construction\Controllers\DisputeController;
 use Construction\Controllers\ListingController;
@@ -18,6 +19,7 @@ use Construction\Controllers\ProjectController;
 use Construction\Controllers\ReviewController;
 use Construction\Controllers\StoreController;
 
+$admin = new AdminController();
 $auth = new AuthController();
 $project = new ProjectController();
 $payment = new PaymentController();
@@ -68,6 +70,10 @@ $router->patch('/api/v1/disputes/{id}/resolve', [$dispute, 'resolve']);
 // Provider onboarding (Tier 3 KYC)
 $router->post('/api/v1/providers/onboard', [$onboarding, 'submit']);
 $router->get('/api/v1/providers/{id}', [$listing, 'providerProfile']);
+
+// Admin console (Platform Admin only) — KYC approval queue
+$router->get('/api/v1/admin/kyc', [$admin, 'kycQueue']);
+$router->post('/api/v1/admin/kyc/{id}/decision', [$admin, 'kycDecision']);
 
 // Equipment / crew listings
 $router->post('/api/v1/equipment-listings', [$listing, 'createEquipment']);

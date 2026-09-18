@@ -57,7 +57,7 @@
         return;
       }
 
-      resultEl.innerHTML = `Documents submitted — status: <strong>${data.status}</strong>. An admin will review before you can list equipment or crew. You can still create listings now; they'll show as unverified until approved.`;
+      resultEl.innerHTML = `Documents submitted — status: <strong>${data.status}</strong>. A Platform Admin will review your documents; you can list equipment or crews and submit quotes once approved.`;
       event.target.hidden = true;
     } catch (e) {
       resultEl.textContent = "Network error: " + e.message;
