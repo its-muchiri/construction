@@ -3,6 +3,7 @@
 namespace Construction\Controllers;
 
 use Construction\Config\Database;
+use Construction\Core\Escrow;
 use Construction\Core\Request;
 use Construction\Core\Response;
 
@@ -72,6 +73,13 @@ final class ProjectController
             return;
         }
 
+        // Lazy auto-release of the inspection-window-held retention slice —
+        // see src/Core/Escrow.php's docblock for why this is a read-time
+        // check rather than a scheduled job.
+        Escrow::releaseRetentionIfDue($db, $booking);
+        $stmt->execute(['id' => $request->params['id']]);
+        $booking = $stmt->fetch();
+
         Response::json($booking);
     }
 
@@ -98,31 +106,84 @@ final class ProjectController
         Response::json(['id' => (int) $db->lastInsertId(), 'status' => 'submitted'], 201);
     }
 
+    /**
+     * Default milestone split (30/40/30) — open-questions.md #3 leaves
+     * whether this is negotiable as an unresolved stakeholder decision;
+     * applying it as a platform default here is the assumption taken (see
+     * MVP_STATUS.md's changelog).
+     */
+    private const DEFAULT_MILESTONE_SPLIT = [
+        ['description' => 'Mobilization', 'percentage' => 30.0],
+        ['description' => 'Progress milestone', 'percentage' => 40.0],
+        ['description' => 'Final completion & retention', 'percentage' => 30.0],
+    ];
+
     public function acceptQuote(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as the customer to accept a quote');
+            return;
+        }
+
         $db = Database::connection();
 
-        // TODO: create project_milestones from the default (or negotiated)
-        // split — see open-questions.md #3 — once accepted.
-        $stmt = $db->prepare('UPDATE project_quotes SET status = \'accepted\' WHERE id = :quote_id');
-        $stmt->execute(['quote_id' => $request->params['quoteId']]);
+        $bookingStmt = $db->prepare('SELECT * FROM construction_bookings WHERE id = :id');
+        $bookingStmt->execute(['id' => $request->params['id']]);
+        $booking = $bookingStmt->fetch();
+        if (!$booking) {
+            Response::notFound('Project not found');
+            return;
+        }
+        if ((int) $booking['customer_id'] !== (int) $request->user['id']) {
+            Response::forbidden('Only the customer who posted this project can accept a quote');
+            return;
+        }
 
-        // MySQL's multi-table UPDATE...JOIN has no Postgres equivalent —
-        // Postgres uses UPDATE...FROM instead — so this branches on the
-        // active driver; see Database::driver() and
-        // planning/00-portfolio/ui-implementation-plan.md for why both
-        // exist (Vercel's Marketplace has no MySQL-compatible database).
-        $sql = Database::driver() === 'pgsql'
-            ? 'UPDATE construction_bookings b
-               SET provider_id = q.provider_id, total_contract_value = q.quoted_amount, status = \'quote_accepted\', updated_at = NOW()
-               FROM project_quotes q
-               WHERE q.id = :quote_id AND b.id = :booking_id'
-            : 'UPDATE construction_bookings b
-               JOIN project_quotes q ON q.id = :quote_id
-               SET b.provider_id = q.provider_id, b.total_contract_value = q.quoted_amount, b.status = \'quote_accepted\', b.updated_at = NOW()
-               WHERE b.id = :booking_id';
-        $stmt = $db->prepare($sql);
-        $stmt->execute(['quote_id' => $request->params['quoteId'], 'booking_id' => $request->params['id']]);
+        $quoteStmt = $db->prepare('SELECT * FROM project_quotes WHERE id = :quote_id AND booking_id = :booking_id');
+        $quoteStmt->execute(['quote_id' => $request->params['quoteId'], 'booking_id' => $request->params['id']]);
+        $quote = $quoteStmt->fetch();
+        if (!$quote) {
+            Response::notFound('Quote not found');
+            return;
+        }
+
+        $db->beginTransaction();
+        try {
+            $db->prepare('UPDATE project_quotes SET status = \'accepted\' WHERE id = :quote_id')
+                ->execute(['quote_id' => $quote['id']]);
+            $db->prepare('UPDATE project_quotes SET status = \'rejected\' WHERE booking_id = :booking_id AND id != :quote_id AND status = \'submitted\'')
+                ->execute(['booking_id' => $request->params['id'], 'quote_id' => $quote['id']]);
+
+            $db->prepare(
+                'UPDATE construction_bookings
+                 SET provider_id = :provider_id, total_contract_value = :amount, status = \'quote_accepted\', updated_at = NOW()
+                 WHERE id = :booking_id'
+            )->execute([
+                'provider_id' => $quote['provider_id'],
+                'amount' => $quote['quoted_amount'],
+                'booking_id' => $request->params['id'],
+            ]);
+
+            $totalValue = (float) $quote['quoted_amount'];
+            $milestoneStmt = $db->prepare(
+                'INSERT INTO project_milestones (booking_id, sequence_number, description, percentage_of_total, amount, status)
+                 VALUES (:booking_id, :sequence_number, :description, :percentage, :amount, \'pending\')'
+            );
+            foreach (self::DEFAULT_MILESTONE_SPLIT as $index => $milestone) {
+                $milestoneStmt->execute([
+                    'booking_id' => $request->params['id'],
+                    'sequence_number' => $index + 1,
+                    'description' => $milestone['description'],
+                    'percentage' => $milestone['percentage'],
+                    'amount' => round($totalValue * $milestone['percentage'] / 100, 2),
+                ]);
+            }
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
 
         Response::json(['id' => (int) $request->params['id'], 'status' => 'quote_accepted']);
     }
@@ -150,6 +211,14 @@ final class ProjectController
     public function listMilestones(Request $request): void
     {
         $db = Database::connection();
+
+        $bookingStmt = $db->prepare('SELECT * FROM construction_bookings WHERE id = :id');
+        $bookingStmt->execute(['id' => $request->params['id']]);
+        $booking = $bookingStmt->fetch();
+        if ($booking) {
+            Escrow::releaseRetentionIfDue($db, $booking);
+        }
+
         $stmt = $db->prepare('SELECT * FROM project_milestones WHERE booking_id = :booking_id ORDER BY sequence_number ASC');
         $stmt->execute(['booking_id' => $request->params['id']]);
 
@@ -158,7 +227,26 @@ final class ProjectController
 
     public function requestMilestoneSignoff(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as the provider to request sign-off');
+            return;
+        }
+
         $db = Database::connection();
+        [$milestone, $booking] = $this->findMilestoneAndBooking($db, $request->params['id'], $request->params['milestoneId']);
+        if (!$milestone) {
+            Response::notFound('Milestone not found');
+            return;
+        }
+        if ((int) $booking['provider_id'] !== (int) $request->user['id']) {
+            Response::forbidden('Only the assigned provider can request sign-off on this milestone');
+            return;
+        }
+        if (!$milestone['escrow_transaction_id']) {
+            Response::error('This milestone has not been funded into escrow yet', 409);
+            return;
+        }
+
         $stmt = $db->prepare('UPDATE project_milestones SET status = \'provider_requested_signoff\' WHERE id = :id');
         $stmt->execute(['id' => $request->params['milestoneId']]);
 
@@ -167,20 +255,83 @@ final class ProjectController
 
     public function confirmMilestone(Request $request): void
     {
-        // TODO: call into the shared Escrow Engine (v2, milestone release —
-        // see shared-architecture.md and build-sequencing-roadmap.md module 10)
-        // to release this tranche.
-        $db = Database::connection();
-        $stmt = $db->prepare(
-            'UPDATE project_milestones SET status = \'customer_confirmed\', confirmed_at = NOW() WHERE id = :id'
-        );
-        $stmt->execute(['id' => $request->params['milestoneId']]);
+        if (!$request->user) {
+            Response::unauthorized('Sign in as the customer to confirm this milestone');
+            return;
+        }
 
-        Response::json(['id' => (int) $request->params['milestoneId'], 'status' => 'customer_confirmed', 'escrow' => 'release_pending']);
+        $db = Database::connection();
+        [$milestone, $booking] = $this->findMilestoneAndBooking($db, $request->params['id'], $request->params['milestoneId']);
+        if (!$milestone) {
+            Response::notFound('Milestone not found');
+            return;
+        }
+        if ((int) $booking['customer_id'] !== (int) $request->user['id']) {
+            Response::forbidden('Only the customer who owns this project can confirm a milestone');
+            return;
+        }
+        if (!$milestone['escrow_transaction_id']) {
+            Response::error('This milestone has not been funded into escrow yet — nothing to release', 409);
+            return;
+        }
+        if ($milestone['status'] === 'released') {
+            Response::error('This milestone has already been released', 409);
+            return;
+        }
+
+        $db->beginTransaction();
+        try {
+            $db->prepare('UPDATE project_milestones SET status = \'customer_confirmed\', confirmed_at = NOW() WHERE id = :id')
+                ->execute(['id' => $request->params['milestoneId']]);
+
+            $milestone['status'] = 'customer_confirmed';
+            $result = Escrow::releaseMilestone($db, $milestone, $booking);
+
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+        if ($result === null) {
+            Response::error('Escrow release failed — no funds held for this milestone', 409);
+            return;
+        }
+
+        Response::json([
+            'id' => (int) $request->params['milestoneId'],
+            'status' => 'customer_confirmed',
+            'escrow' => $result['retained_amount'] > 0 ? 'inspection_window' : 'released',
+            'payout_amount' => $result['payout_amount'],
+            'commission_amount' => $result['commission_amount'],
+            'retained_amount' => $result['retained_amount'],
+        ]);
+    }
+
+    /** @return array{0: array<string,mixed>|null, 1: array<string,mixed>|null} */
+    private function findMilestoneAndBooking(\PDO $db, mixed $bookingId, mixed $milestoneId): array
+    {
+        $stmt = $db->prepare('SELECT * FROM project_milestones WHERE id = :id AND booking_id = :booking_id');
+        $stmt->execute(['id' => $milestoneId, 'booking_id' => $bookingId]);
+        $milestone = $stmt->fetch();
+        if (!$milestone) {
+            return [null, null];
+        }
+
+        $bookingStmt = $db->prepare('SELECT * FROM construction_bookings WHERE id = :id');
+        $bookingStmt->execute(['id' => $bookingId]);
+        $booking = $bookingStmt->fetch();
+
+        return [$milestone ?: null, $booking ?: null];
     }
 
     public function submitConditionReport(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as the provider or a Site Inspector to submit a condition report');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO equipment_condition_reports

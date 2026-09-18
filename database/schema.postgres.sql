@@ -48,6 +48,13 @@ CREATE TABLE payments (
     user_id BIGINT NOT NULL REFERENCES users(id),
     booking_id BIGINT NULL,
     order_id BIGINT NULL,
+    -- construction.co.ke-specific extension (not part of the portfolio's
+    -- shared payments shape): links a charge to the specific
+    -- project_milestones tranche it funds, since unlike the other
+    -- platforms' single-payment-per-booking model, one construction booking
+    -- can have several milestone charges. See src/Core/Escrow.php. FK added
+    -- below, after project_milestones exists.
+    milestone_id BIGINT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('charge', 'payout', 'refund', 'commission')),
     method VARCHAR(20) NOT NULL CHECK (method IN ('mpesa_stk', 'mpesa_c2b', 'mpesa_b2c', 'card')),
     amount DECIMAL(12,2) NOT NULL,
@@ -227,6 +234,7 @@ CREATE TABLE crew_listings (
 ALTER TABLE disputes ADD CONSTRAINT fk_disputes_booking FOREIGN KEY (booking_id) REFERENCES construction_bookings(id);
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_booking FOREIGN KEY (booking_id) REFERENCES construction_bookings(id);
 ALTER TABLE escrow_transactions ADD CONSTRAINT fk_escrow_booking FOREIGN KEY (booking_id) REFERENCES construction_bookings(id);
+ALTER TABLE payments ADD CONSTRAINT fk_payments_milestone FOREIGN KEY (milestone_id) REFERENCES project_milestones(id);
 
 -- ============================================================
 -- E-COMMERCE STORE — shared shape across all five platforms
