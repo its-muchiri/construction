@@ -64,5 +64,12 @@ try {
     if ($debug) {
         throw $e;
     }
+    // TEMP diagnostic: reveal the real exception to whoever holds APP_KEY,
+    // via a header only the operator knows — removed once this pass's
+    // acceptQuote 500 is diagnosed. See MVP_STATUS.md.
+    if (hash_equals(getenv('APP_KEY') ?: '', $request->headers['X-Debug-Key'] ?? '')) {
+        Response::error($e->getMessage(), 500, ['trace' => explode("\n", $e->getTraceAsString())]);
+        return;
+    }
     Response::error('Internal server error — this environment may not have a database connected yet.', 500);
 }
