@@ -16,6 +16,9 @@ use Construction\Controllers\PageController;
 $page = new PageController();
 
 $router->get('/', [$page, 'home']);
+$router->get('/login', [$page, 'loginForm']);
+$router->get('/signup', [$page, 'signupForm']);
+$router->get('/onboarding', [$page, 'onboardingForm']);
 $router->get('/projects/new', [$page, 'projectForm']);
 $router->get('/equipment', [$page, 'equipmentIndex']);
 $router->get('/crew', [$page, 'crewIndex']);

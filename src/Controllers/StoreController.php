@@ -31,6 +31,11 @@ final class StoreController
 
     public function createOrder(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in to place an order');
+            return;
+        }
+
         $db = Database::connection();
         $items = $request->input('items', []);
 

@@ -9,6 +9,7 @@
  * @var \Construction\Core\Router $router
  */
 
+use Construction\Controllers\AuthController;
 use Construction\Controllers\DisputeController;
 use Construction\Controllers\ListingController;
 use Construction\Controllers\OnboardingController;
@@ -17,6 +18,7 @@ use Construction\Controllers\ProjectController;
 use Construction\Controllers\ReviewController;
 use Construction\Controllers\StoreController;
 
+$auth = new AuthController();
 $project = new ProjectController();
 $payment = new PaymentController();
 $review = new ReviewController();
@@ -24,6 +26,11 @@ $dispute = new DisputeController();
 $listing = new ListingController();
 $store = new StoreController();
 $onboarding = new OnboardingController();
+
+// Auth (issues the bearer token every other write endpoint requires)
+$router->post('/api/v1/auth/signup', [$auth, 'signup']);
+$router->post('/api/v1/auth/login', [$auth, 'login']);
+$router->get('/api/v1/auth/me', [$auth, 'me']);
 
 // Bookings / Projects
 $router->post('/api/v1/projects', [$project, 'create']);

@@ -17,6 +17,11 @@ final class ProjectController
 {
     public function create(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a customer to post a project');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO construction_bookings
@@ -72,6 +77,11 @@ final class ProjectController
 
     public function submitQuote(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a provider to submit a quote');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO project_quotes (booking_id, provider_id, quoted_amount, proposed_start_date, conditions, status, created_at)

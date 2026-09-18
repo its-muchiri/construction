@@ -28,6 +28,14 @@
 
 <script type="module">
   import { createDateRangePicker } from "/assets/js/components/booking-calendar.js";
+  import { authHeaders, getUser } from "/assets/js/lib/auth-session.js";
+
+  const resultEl = document.getElementById("project-result");
+
+  if (!getUser()) {
+    resultEl.innerHTML = `Sign in as a customer first — <a href="/login?next=/projects/new">log in</a> or <a href="/signup">sign up</a>.`;
+    document.getElementById("project-form").hidden = true;
+  }
 
   let dateRange = { start: null, end: null };
   document.getElementById("date-range-container").appendChild(
@@ -37,7 +45,6 @@
   document.getElementById("project-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
-    const resultEl = document.getElementById("project-result");
     const bookingType = formData.get("booking_type");
 
     const payload = {
@@ -58,16 +65,13 @@
     try {
       const res = await fetch("/api/v1/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        // Expected right now: no auth middleware exists yet, so customer_id
-        // resolves to null and the database rejects the insert. See
-        // src/Controllers/ProjectController.php.
-        resultEl.textContent = "Post failed: " + (data.error || "unknown error") + " — expected until auth middleware and a live database are wired up.";
+        resultEl.textContent = "Post failed: " + (data.error || "unknown error");
         return;
       }
 

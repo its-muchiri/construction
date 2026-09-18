@@ -16,6 +16,11 @@ final class ListingController
 {
     public function createEquipment(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a provider to list equipment');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO equipment_listings
@@ -55,6 +60,11 @@ final class ListingController
 
     public function createCrew(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a provider to list a crew');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO crew_listings (provider_id, trade, team_size, day_rate, certification_kyc_document_id, status)

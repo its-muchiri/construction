@@ -20,8 +20,13 @@ final class OnboardingController
 {
     public function submit(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a provider to submit KYC documents');
+            return;
+        }
+
         $db = Database::connection();
-        $providerId = $request->user['id'] ?? null;
+        $providerId = $request->user['id'];
 
         $requiredDocs = ['national_id', 'kra_pin', 'business_registration'];
         $documents = $request->input('documents', []);

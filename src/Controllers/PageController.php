@@ -56,6 +56,21 @@ final class PageController
         View::render('project-new', ['title' => 'Post a project']);
     }
 
+    public function loginForm(Request $request): void
+    {
+        View::render('login', ['title' => 'Log in']);
+    }
+
+    public function signupForm(Request $request): void
+    {
+        View::render('signup', ['title' => 'Sign up']);
+    }
+
+    public function onboardingForm(Request $request): void
+    {
+        View::render('onboarding', ['title' => 'Provider verification']);
+    }
+
     public function equipmentIndex(Request $request): void
     {
         $category = $request->query['category'] ?? null;

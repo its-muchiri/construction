@@ -21,6 +21,11 @@ final class DisputeController
 {
     public function store(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in to raise a dispute');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO disputes (booking_id, raised_by, category, description, evidence_urls, status, created_at)

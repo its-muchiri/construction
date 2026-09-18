@@ -22,10 +22,11 @@ $isCritical = $critical ?? false;
 <body>
   <header class="site-header container">
     <a href="/" style="text-decoration:none;color:inherit;"><strong>construction.co.ke</strong></a>
-    <nav aria-label="Primary" style="display:flex; gap: var(--ac-space-3);">
+    <nav aria-label="Primary" style="display:flex; align-items:center; gap: var(--ac-space-3); flex-wrap: wrap;">
       <a href="/equipment" class="btn btn--secondary">Browse equipment</a>
       <a href="/crew" class="btn btn--secondary">Browse crews</a>
       <a href="/projects/new" class="btn btn--primary">Post a project</a>
+      <span id="nav-account"></span>
     </nav>
   </header>
 
@@ -38,5 +39,21 @@ $isCritical = $critical ?? false;
   </footer>
 
   <script type="module" src="/assets/js/main.js"></script>
+  <script type="module">
+    import { getUser, clearSession } from "/assets/js/lib/auth-session.js";
+
+    const accountEl = document.getElementById("nav-account");
+    const user = getUser();
+
+    if (user) {
+      accountEl.innerHTML = `<span class="card__meta">Hi, ${user.full_name.split(" ")[0]}</span> <button type="button" class="btn btn--secondary" id="nav-logout">Log out</button>`;
+      document.getElementById("nav-logout").addEventListener("click", () => {
+        clearSession();
+        window.location.href = "/";
+      });
+    } else {
+      accountEl.innerHTML = `<a href="/login" class="btn btn--secondary">Log in</a> <a href="/signup" class="btn btn--secondary">Sign up</a>`;
+    }
+  </script>
 </body>
 </html>

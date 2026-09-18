@@ -27,6 +27,11 @@ final class PaymentController
 
     public function myEarnings(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in as a provider to view earnings');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'SELECT * FROM payments WHERE user_id = :user_id AND type = \'payout\' ORDER BY created_at DESC'

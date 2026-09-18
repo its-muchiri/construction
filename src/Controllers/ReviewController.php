@@ -10,6 +10,11 @@ final class ReviewController
 {
     public function store(Request $request): void
     {
+        if (!$request->user) {
+            Response::unauthorized('Sign in to submit a review');
+            return;
+        }
+
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment, created_at)

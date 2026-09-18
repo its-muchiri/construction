@@ -13,6 +13,8 @@ if (is_file($envFile)) {
     }
 }
 
+use Construction\Config\Database;
+use Construction\Core\Auth;
 use Construction\Core\Request;
 use Construction\Core\Response;
 use Construction\Core\Router;
@@ -32,7 +34,31 @@ if (is_file(__DIR__ . '/../routes/web.php')) {
 }
 
 try {
-    $router->dispatch(Request::fromGlobals());
+    $request = Request::fromGlobals();
+
+    // Auth middleware: resolves a bearer token into $request->user, consumed
+    // by every controller that writes on behalf of a signed-in user. Fails
+    // soft (leaves $request->user null) if the token is missing/invalid/
+    // expired, or if the database isn't reachable yet in this environment —
+    // downstream controllers are responsible for rejecting unauthenticated
+    // writes themselves (see Response::unauthorized() usages).
+    $userId = Auth::verifyToken($request->bearerToken());
+    if ($userId !== null) {
+        try {
+            $stmt = Database::connection()->prepare(
+                'SELECT id, full_name, phone_number, email, account_type, status FROM users WHERE id = :id'
+            );
+            $stmt->execute(['id' => $userId]);
+            $user = $stmt->fetch();
+            if ($user) {
+                $request->user = $user;
+            }
+        } catch (\Throwable $e) {
+            error_log((string) $e);
+        }
+    }
+
+    $router->dispatch($request);
 } catch (\Throwable $e) {
     error_log((string) $e);
     if ($debug) {
