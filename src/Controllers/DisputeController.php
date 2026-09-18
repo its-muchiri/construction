@@ -24,7 +24,7 @@ final class DisputeController
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO disputes (booking_id, raised_by, category, description, evidence_urls, status, created_at)
-             VALUES (:booking_id, :raised_by, :category, :description, :evidence_urls, "open", NOW())'
+             VALUES (:booking_id, :raised_by, :category, :description, :evidence_urls, \'open\', NOW())'
         );
         $stmt->execute([
             'booking_id' => $request->params['id'],
@@ -43,7 +43,7 @@ final class DisputeController
     public function index(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->query('SELECT * FROM disputes WHERE status IN ("open", "under_review") ORDER BY created_at ASC');
+        $stmt = $db->query('SELECT * FROM disputes WHERE status IN (\'open\', \'under_review\') ORDER BY created_at ASC');
 
         Response::json($stmt->fetchAll());
     }

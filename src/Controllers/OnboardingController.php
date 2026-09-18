@@ -36,7 +36,7 @@ final class OnboardingController
 
         $stmt = $db->prepare(
             'INSERT INTO kyc_documents (user_id, document_type, file_reference, verification_status)
-             VALUES (:user_id, :document_type, :file_reference, "pending")'
+             VALUES (:user_id, :document_type, :file_reference, \'pending\')'
         );
 
         $submitted = [];
@@ -49,7 +49,7 @@ final class OnboardingController
             $submitted[] = (int) $db->lastInsertId();
         }
 
-        $stmt = $db->prepare('UPDATE users SET status = "pending_verification" WHERE id = :id');
+        $stmt = $db->prepare('UPDATE users SET status = \'pending_verification\' WHERE id = :id');
         $stmt->execute(['id' => $providerId]);
 
         // NOTE: equipment_listings and crew_listings each carry their own

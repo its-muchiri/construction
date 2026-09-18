@@ -33,10 +33,10 @@ final class PageController
         try {
             $db = Database::connection();
             $equipment = $db->query(
-                'SELECT id, provider_id, equipment_category, make_model, daily_rate FROM equipment_listings WHERE status = "active" ORDER BY id DESC LIMIT 4'
+                'SELECT id, provider_id, equipment_category, make_model, daily_rate FROM equipment_listings WHERE status = \'active\' ORDER BY id DESC LIMIT 4'
             )->fetchAll();
             $crew = $db->query(
-                'SELECT id, provider_id, trade, team_size, day_rate FROM crew_listings WHERE status = "active" ORDER BY id DESC LIMIT 4'
+                'SELECT id, provider_id, trade, team_size, day_rate FROM crew_listings WHERE status = \'active\' ORDER BY id DESC LIMIT 4'
             )->fetchAll();
         } catch (Throwable $e) {
             error_log((string) $e);
@@ -65,10 +65,10 @@ final class PageController
         try {
             $db = Database::connection();
             if ($category) {
-                $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = "active" AND equipment_category = :category');
+                $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = \'active\' AND equipment_category = :category');
                 $stmt->execute(['category' => $category]);
             } else {
-                $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = "active"');
+                $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = \'active\'');
             }
             $listings = $stmt->fetchAll();
         } catch (Throwable $e) {
@@ -93,10 +93,10 @@ final class PageController
         try {
             $db = Database::connection();
             if ($trade) {
-                $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = "active" AND trade = :trade');
+                $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = \'active\' AND trade = :trade');
                 $stmt->execute(['trade' => $trade]);
             } else {
-                $stmt = $db->query('SELECT * FROM crew_listings WHERE status = "active"');
+                $stmt = $db->query('SELECT * FROM crew_listings WHERE status = \'active\'');
             }
             $listings = $stmt->fetchAll();
         } catch (Throwable $e) {
@@ -120,16 +120,16 @@ final class PageController
 
         try {
             $db = Database::connection();
-            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = "provider"');
+            $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
             $stmt->execute(['id' => $providerId]);
             $provider = $stmt->fetch() ?: null;
 
             if ($provider) {
-                $equipmentStmt = $db->prepare('SELECT * FROM equipment_listings WHERE provider_id = :id AND status = "active"');
+                $equipmentStmt = $db->prepare('SELECT * FROM equipment_listings WHERE provider_id = :id AND status = \'active\'');
                 $equipmentStmt->execute(['id' => $providerId]);
                 $provider['equipment_listings'] = $equipmentStmt->fetchAll();
 
-                $crewStmt = $db->prepare('SELECT * FROM crew_listings WHERE provider_id = :id AND status = "active"');
+                $crewStmt = $db->prepare('SELECT * FROM crew_listings WHERE provider_id = :id AND status = \'active\'');
                 $crewStmt->execute(['id' => $providerId]);
                 $provider['crew_listings'] = $crewStmt->fetchAll();
             }

@@ -22,7 +22,7 @@ final class ListingController
                 (provider_id, equipment_category, make_model, year_of_manufacture, daily_rate, weekly_rate,
                  ownership_kyc_document_id, insurance_kyc_document_id, status)
              VALUES (:provider_id, :category, :make_model, :year, :daily_rate, :weekly_rate,
-                 :ownership_doc_id, :insurance_doc_id, "active")'
+                 :ownership_doc_id, :insurance_doc_id, \'active\')'
         );
         $stmt->execute([
             'provider_id' => $request->user['id'] ?? null,
@@ -44,10 +44,10 @@ final class ListingController
         $category = $request->query['category'] ?? null;
 
         if ($category) {
-            $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = "active" AND equipment_category = :category');
+            $stmt = $db->prepare('SELECT * FROM equipment_listings WHERE status = \'active\' AND equipment_category = :category');
             $stmt->execute(['category' => $category]);
         } else {
-            $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = "active"');
+            $stmt = $db->query('SELECT * FROM equipment_listings WHERE status = \'active\'');
         }
 
         Response::json($stmt->fetchAll());
@@ -58,7 +58,7 @@ final class ListingController
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO crew_listings (provider_id, trade, team_size, day_rate, certification_kyc_document_id, status)
-             VALUES (:provider_id, :trade, :team_size, :day_rate, :certification_doc_id, "active")'
+             VALUES (:provider_id, :trade, :team_size, :day_rate, :certification_doc_id, \'active\')'
         );
         $stmt->execute([
             'provider_id' => $request->user['id'] ?? null,
@@ -77,10 +77,10 @@ final class ListingController
         $trade = $request->query['trade'] ?? null;
 
         if ($trade) {
-            $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = "active" AND trade = :trade');
+            $stmt = $db->prepare('SELECT * FROM crew_listings WHERE status = \'active\' AND trade = :trade');
             $stmt->execute(['trade' => $trade]);
         } else {
-            $stmt = $db->query('SELECT * FROM crew_listings WHERE status = "active"');
+            $stmt = $db->query('SELECT * FROM crew_listings WHERE status = \'active\'');
         }
 
         Response::json($stmt->fetchAll());
@@ -89,7 +89,7 @@ final class ListingController
     public function providerProfile(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = "provider"');
+        $stmt = $db->prepare('SELECT id, full_name, status FROM users WHERE id = :id AND account_type = \'provider\'');
         $stmt->execute(['id' => $request->params['id']]);
         $provider = $stmt->fetch();
 
@@ -98,11 +98,11 @@ final class ListingController
             return;
         }
 
-        $equipmentStmt = $db->prepare('SELECT * FROM equipment_listings WHERE provider_id = :id AND status = "active"');
+        $equipmentStmt = $db->prepare('SELECT * FROM equipment_listings WHERE provider_id = :id AND status = \'active\'');
         $equipmentStmt->execute(['id' => $request->params['id']]);
         $provider['equipment_listings'] = $equipmentStmt->fetchAll();
 
-        $crewStmt = $db->prepare('SELECT * FROM crew_listings WHERE provider_id = :id AND status = "active"');
+        $crewStmt = $db->prepare('SELECT * FROM crew_listings WHERE provider_id = :id AND status = \'active\'');
         $crewStmt->execute(['id' => $request->params['id']]);
         $provider['crew_listings'] = $crewStmt->fetchAll();
 

@@ -23,7 +23,7 @@ final class ProjectController
                 (customer_id, booking_type, category, status, location_address, location_lat, location_lng,
                  rental_start_date, rental_end_date, project_start_date, project_end_date,
                  total_contract_value, retention_percentage, created_at, updated_at)
-             VALUES (:customer_id, :booking_type, :category, "open_for_quotes", :location_address, :location_lat, :location_lng,
+             VALUES (:customer_id, :booking_type, :category, \'open_for_quotes\', :location_address, :location_lat, :location_lng,
                  :rental_start, :rental_end, :project_start, :project_end,
                  0, :retention_percentage, NOW(), NOW())'
         );
@@ -50,7 +50,7 @@ final class ProjectController
     public function index(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->query('SELECT * FROM construction_bookings WHERE status = "open_for_quotes" ORDER BY created_at DESC');
+        $stmt = $db->query('SELECT * FROM construction_bookings WHERE status = \'open_for_quotes\' ORDER BY created_at DESC');
 
         Response::json($stmt->fetchAll());
     }
@@ -75,7 +75,7 @@ final class ProjectController
         $db = Database::connection();
         $stmt = $db->prepare(
             'INSERT INTO project_quotes (booking_id, provider_id, quoted_amount, proposed_start_date, conditions, status, created_at)
-             VALUES (:booking_id, :provider_id, :quoted_amount, :proposed_start_date, :conditions, "submitted", NOW())'
+             VALUES (:booking_id, :provider_id, :quoted_amount, :proposed_start_date, :conditions, \'submitted\', NOW())'
         );
         $stmt->execute([
             'booking_id' => $request->params['id'],
@@ -94,15 +94,24 @@ final class ProjectController
 
         // TODO: create project_milestones from the default (or negotiated)
         // split — see open-questions.md #3 — once accepted.
-        $stmt = $db->prepare('UPDATE project_quotes SET status = "accepted" WHERE id = :quote_id');
+        $stmt = $db->prepare('UPDATE project_quotes SET status = \'accepted\' WHERE id = :quote_id');
         $stmt->execute(['quote_id' => $request->params['quoteId']]);
 
-        $stmt = $db->prepare(
-            'UPDATE construction_bookings b
-             JOIN project_quotes q ON q.id = :quote_id
-             SET b.provider_id = q.provider_id, b.total_contract_value = q.quoted_amount, b.status = "quote_accepted", b.updated_at = NOW()
-             WHERE b.id = :booking_id'
-        );
+        // MySQL's multi-table UPDATE...JOIN has no Postgres equivalent —
+        // Postgres uses UPDATE...FROM instead — so this branches on the
+        // active driver; see Database::driver() and
+        // planning/00-portfolio/ui-implementation-plan.md for why both
+        // exist (Vercel's Marketplace has no MySQL-compatible database).
+        $sql = Database::driver() === 'pgsql'
+            ? 'UPDATE construction_bookings b
+               SET provider_id = q.provider_id, total_contract_value = q.quoted_amount, status = \'quote_accepted\', updated_at = NOW()
+               FROM project_quotes q
+               WHERE q.id = :quote_id AND b.id = :booking_id'
+            : 'UPDATE construction_bookings b
+               JOIN project_quotes q ON q.id = :quote_id
+               SET b.provider_id = q.provider_id, b.total_contract_value = q.quoted_amount, b.status = \'quote_accepted\', b.updated_at = NOW()
+               WHERE b.id = :booking_id';
+        $stmt = $db->prepare($sql);
         $stmt->execute(['quote_id' => $request->params['quoteId'], 'booking_id' => $request->params['id']]);
 
         Response::json(['id' => (int) $request->params['id'], 'status' => 'quote_accepted']);
@@ -122,7 +131,7 @@ final class ProjectController
         // TODO: cancellation/refund policy for a mobilized-but-not-started
         // project — see open-questions.md #7.
         $db = Database::connection();
-        $stmt = $db->prepare('UPDATE construction_bookings SET status = "cancelled", updated_at = NOW() WHERE id = :id');
+        $stmt = $db->prepare('UPDATE construction_bookings SET status = \'cancelled\', updated_at = NOW() WHERE id = :id');
         $stmt->execute(['id' => $request->params['id']]);
 
         Response::json(['id' => (int) $request->params['id'], 'status' => 'cancelled']);
@@ -140,7 +149,7 @@ final class ProjectController
     public function requestMilestoneSignoff(Request $request): void
     {
         $db = Database::connection();
-        $stmt = $db->prepare('UPDATE project_milestones SET status = "provider_requested_signoff" WHERE id = :id');
+        $stmt = $db->prepare('UPDATE project_milestones SET status = \'provider_requested_signoff\' WHERE id = :id');
         $stmt->execute(['id' => $request->params['milestoneId']]);
 
         Response::json(['id' => (int) $request->params['milestoneId'], 'status' => 'provider_requested_signoff']);
@@ -153,7 +162,7 @@ final class ProjectController
         // to release this tranche.
         $db = Database::connection();
         $stmt = $db->prepare(
-            'UPDATE project_milestones SET status = "customer_confirmed", confirmed_at = NOW() WHERE id = :id'
+            'UPDATE project_milestones SET status = \'customer_confirmed\', confirmed_at = NOW() WHERE id = :id'
         );
         $stmt->execute(['id' => $request->params['milestoneId']]);
 
