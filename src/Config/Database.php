@@ -80,7 +80,18 @@ final class Database
             return new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
+                // true (not false, unlike connectMysql()) — Neon's pooled
+                // endpoint (PGHOST's "-pooler" host) runs PgBouncer in
+                // transaction-pooling mode. Native server-side prepared
+                // statements (EMULATE_PREPARES=false) reliably broke any
+                // explicit multi-statement PDO transaction on this
+                // connection with "SQLSTATE[25P02] current transaction is
+                // aborted" on the second statement — reproduced directly
+                // against this Neon instance with a real multi-milestone
+                // acceptQuote transaction; confirmed the client-side-emulated
+                // (inlined-parameter) query path fixes it. See
+                // MVP_STATUS.md's changelog for the diagnosis.
+                PDO::ATTR_EMULATE_PREPARES => true,
             ]);
         } catch (PDOException $e) {
             throw new PDOException('Database connection failed: ' . $e->getMessage(), (int) $e->getCode());
