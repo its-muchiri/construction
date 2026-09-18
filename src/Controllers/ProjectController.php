@@ -349,7 +349,11 @@ final class ProjectController
             'video_url' => $request->input('video_url'),
             'condition_notes' => $request->input('condition_notes'),
             'meter_reading_hours' => $request->input('meter_reading_hours'),
-            'independently_verified' => (bool) $request->input('independently_verified', false),
+            // Bind as the literal string Postgres's boolean parser accepts
+            // rather than a PHP bool — PDO stringifies `false` to '' when
+            // binding, which Postgres rejects for a BOOLEAN column
+            // ("invalid input syntax for type boolean").
+            'independently_verified' => $request->input('independently_verified', false) ? 'true' : 'false',
         ]);
 
         Response::json(['id' => (int) $db->lastInsertId()], 201);
